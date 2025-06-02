@@ -1,0 +1,259 @@
+!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FilmFeel 🎥</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #ece9e6, #ffffff);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .card {
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+      width: 360px;
+      max-width: 90%;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 1.8em;
+      color: #2d3436;
+      text-align: center;
+    }
+
+    p.subtitle {
+      margin: 0 0 20px;
+      font-size: 0.95em;
+      color: #636e72;
+      text-align: center;
+    }
+
+    label {
+      display: block;
+      margin-top: 12px;
+      font-size: 0.9em;
+      color: #2d3436;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 0.95em;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    textarea {
+      min-height: 60px;
+    }
+
+    .range-container {
+      display: flex;
+      align-items: center;
+      margin-top: 6px;
+    }
+
+    .range-container input[type="range"] {
+      flex: 1;
+      margin-right: 10px;
+    }
+
+    .range-container span {
+      width: 28px;
+      text-align: center;
+      font-weight: bold;
+      color: #2d3436;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 20px;
+      padding: 12px;
+      background: #6c5ce7;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1em;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    button:hover {
+      background: #5a4dcf;
+    }
+
+    #result {
+      margin-top: 24px;
+      padding: 20px;
+      background: #f1f2f6;
+      border-radius: 8px;
+      font-size: 0.95em;
+      color: #2d3436;
+      line-height: 1.4;
+    }
+
+    #result strong {
+      color: #0984e3;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>FilmFeel 🎥</h1>
+    <p class="subtitle">How much did you really enjoy it?</p>
+
+    <!-- Film Info Section -->
+    <label for="filmName">🎬 Film or Series Name</label>
+    <input type="text" id="filmName" placeholder="Enter title here">
+
+    <label for="runtime">⏱️ Total Runtime (minutes)</label>
+    <input type="number" id="runtime" placeholder="e.g., 120" min="1">
+
+    <label for="percentWatched">%️⃣ What % did you complete?</label>
+    <input type="number" id="percentWatched" placeholder="0–100" min="0" max="100">
+
+    <label for="genre">🎭 Genre (optional)</label>
+    <select id="genre">
+      <option value="" selected>— Select genre —</option>
+      <option>Action</option>
+      <option>Comedy</option>
+      <option>Drama</option>
+      <option>Horror</option>
+      <option>Sci-Fi</option>
+      <option>Romance</option>
+      <option>Documentary</option>
+      <option>Other</option>
+    </select>
+
+    <!-- Context Section -->
+    <label for="watchContext">👥 Watched Alone or With Someone?</label>
+    <select id="watchContext">
+      <option>Alone</option>
+      <option>With Someone</option>
+    </select>
+
+    <label for="source">📌 Did you choose it or was it recommended?</label>
+    <select id="source">
+      <option>I chose it</option>
+      <option>It was recommended</option>
+    </select>
+
+    <!-- Enjoyment & Rating Section -->
+    <label>❤️ How much did you enjoy it? (<span id="enjoyVal">5</span>/10)</label>
+    <div class="range-container">
+      <input type="range" id="enjoyInput" min="1" max="10" value="5">
+      <span id="enjoyDisplay">5</span>
+    </div>
+
+    <label>⭐ What would you rate it? (<span id="rateVal">5</span>/10)</label>
+    <div class="range-container">
+      <input type="range" id="rateInput" min="1" max="10" value="5">
+      <span id="rateDisplay">5</span>
+    </div>
+
+    <label for="oneLine">💭 One-line summary of why</label>
+    <textarea id="oneLine" placeholder="Your quick reason..."></textarea>
+
+    <!-- Calculate Button -->
+    <button onclick="calculateFilmFeel()">Calculate</button>
+
+    <!-- Result Display -->
+    <div id="result" style="display: none;"></div>
+  </div>
+
+  <script>
+    // Sync range inputs with displays
+    const enjoyInput = document.getElementById('enjoyInput');
+    const enjoyDisplay = document.getElementById('enjoyDisplay');
+    const enjoyVal = document.getElementById('enjoyVal');
+
+    const rateInput = document.getElementById('rateInput');
+    const rateDisplay = document.getElementById('rateDisplay');
+    const rateVal = document.getElementById('rateVal');
+
+    enjoyInput.addEventListener('input', () => {
+      enjoyDisplay.textContent = enjoyInput.value;
+      enjoyVal.textContent = enjoyInput.value;
+    });
+
+    rateInput.addEventListener('input', () => {
+      rateDisplay.textContent = rateInput.value;
+      rateVal.textContent = rateInput.value;
+    });
+
+    function calculateFilmFeel() {
+      // Gather inputs
+      const name = document.getElementById('filmName').value.trim() || 'Unknown Title';
+      const runtime = parseFloat(document.getElementById('runtime').value) || 0;
+      const percent = parseFloat(document.getElementById('percentWatched').value) || 0;
+      const genre = document.getElementById('genre').value || 'N/A';
+      const context = document.getElementById('watchContext').value;
+      const source = document.getElementById('source').value;
+      const enjoyment = parseInt(enjoyInput.value);
+      const rating = parseInt(rateInput.value);
+      const oneLine = document.getElementById('oneLine').value.trim() || '—';
+
+      // Calculate alignment
+      const diff = Math.abs(enjoyment - rating);
+      // Alignment percentage: 100% if diff=0; 0% if diff=9
+      const alignment = Math.round((1 - (diff / 9)) * 100);
+
+      // Choose insight message
+      let insight = '';
+      if (alignment >= 80) {
+        insight = "🎉 Your enjoyment and rating match strongly!";
+      } else if (alignment >= 50) {
+        insight = "🤔 There's some gap between how much you enjoyed it and your rating.";
+      } else {
+        insight = "😬 Big difference! Maybe hype or recommendation skewed your score.";
+      }
+
+      // Build result HTML
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = `
+        <strong>Movie/Series:</strong> ${name}<br>
+        <strong>Genre:</strong> ${genre}<br>
+        <strong>Runtime:</strong> ${runtime} min &nbsp;|&nbsp;
+        <strong>Watched:</strong> ${percent}%<br>
+        <strong>With:</strong> ${context} &nbsp;|&nbsp;
+        <strong>Choice:</strong> ${source}<br><br>
+
+        <strong>Your Enjoyment:</strong> ${enjoyment}/10 &nbsp;|&nbsp;
+        <strong>Your Rating:</strong> ${rating}/10<br>
+        <strong>Alignment:</strong> ${alignment}%<br>
+        <em>${insight}</em><br><br>
+
+        <strong>Why?</strong> ${oneLine}
+      `;
+      resultDiv.style.display = 'block';
+      resultDiv.scrollIntoView({ behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>
