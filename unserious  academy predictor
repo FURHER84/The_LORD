@@ -1,0 +1,130 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import LabelEncoder
+import os
+
+st.set_page_config(page_title="UNSERIOUS PEOPLE ACADEMY", page_icon="🧠", layout="centered")
+
+# --- COLORS & STYLING ---
+st.markdown("""
+    <style>
+        body {
+            background-color: #fff;
+        }
+        .main {
+            background-color: #f5f0ff;
+        }
+        h1 {
+            color: #6a0dad;
+            font-weight: bold;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- GAMIFIED HEADER ---
+st.title("🧠 UNSERIOUS PEOPLE ACADEMY")
+st.subheader("🎮 ML-powered Pass Prediction Game")
+
+# --- CSV FILE ---
+CSV_FILE = "student_data.csv"
+
+# --- Initialize CSV if doesn't exist ---
+if not os.path.exists(CSV_FILE):
+    df = pd.DataFrame(columns=[
+        "Hours_Studied", "Hours_Slept", "Classes_Attended", "Homework_Completion",
+        "Tutoring", "Test_Anxiety", "Distraction_Time", "Participation", "Prediction", "Confidence"
+    ])
+    df.to_csv(CSV_FILE, index=False)
+
+# --- Encode Inputs ---
+def encode_input(df):
+    df = df.copy()
+    df['Tutoring'] = df['Tutoring'].map({'Yes': 1, 'No': 0})
+    df['Test_Anxiety'] = LabelEncoder().fit_transform(df['Test_Anxiety'])
+    return df
+
+# --- Train Model ---
+def train_model():
+    df = pd.read_csv(CSV_FILE)
+    if len(df) < 10:
+        return None, None
+    df_encoded = encode_input(df.drop(columns=["Prediction", "Confidence"]))
+    labels = (df["Prediction"] == "Pass").astype(int)
+    model = LogisticRegression()
+    model.fit(df_encoded, labels)
+    return model, df_encoded.columns.tolist()
+
+model, feature_names = train_model()
+
+# --- Input Form ---
+st.markdown("### 🚀 Enter Student Battle Stats")
+with st.form("student_form"):
+    h_study = st.slider("📚 Hours Studied", 0.0, 12.0, 4.0)
+    h_sleep = st.slider("😴 Hours Slept", 0.0, 12.0, 6.0)
+    classes_att = st.slider("🏫 Classes Attended (%)", 0, 100, 75)
+    homework = st.slider("📝 Homework Completion (%)", 0, 100, 70)
+    tutoring = st.selectbox("🤝 Uses Tutoring?", ["Yes", "No"])
+    anxiety = st.selectbox("😰 Test Anxiety Level", ["Low", "Medium", "High"])
+    distraction = st.slider("📱 Distraction Time (hrs/day)", 0.0, 8.0, 2.0)
+    participation = st.slider("🎤 Class Participation (%)", 0, 100, 60)
+
+    submitted = st.form_submit_button("Predict My Fate 🎯")
+
+# --- On Submit ---
+if submitted:
+    input_data = pd.DataFrame([{
+        "Hours_Studied": h_study,
+        "Hours_Slept": h_sleep,
+        "Classes_Attended": classes_att,
+        "Homework_Completion": homework,
+        "Tutoring": tutoring,
+        "Test_Anxiety": anxiety,
+        "Distraction_Time": distraction,
+        "Participation": participation
+    }])
+
+    encoded = encode_input(input_data)
+
+    if model:
+        proba = model.predict_proba(encoded)[0][1]
+        prediction = "Pass" if proba >= 0.5 else "Fail"
+        confidence = round(proba * 100, 2)
+
+        st.markdown(f"### 🎓 Prediction: **{prediction}**")
+        st.markdown(f"🧪 Confidence Score: `{confidence}%`")
+
+        # Save to CSV
+        input_data["Prediction"] = prediction
+        input_data["Confidence"] = confidence
+        input_data.to_csv(CSV_FILE, mode='a', header=False, index=False)
+
+        # Fun message
+        if prediction == "Pass":
+            st.success("🏆 You’re leveling up! Keep gaining XP!")
+        else:
+            st.error("💀 You are weak. More grinding needed!")
+
+    else:
+        st.warning("👨‍🏫 Not enough data to train yet. Enter at least 10 samples.")
+
+# --- Admin Section ---
+st.markdown("### 🛠️ Admin Zone")
+admin_action = st.selectbox("Choose Admin Action", ["None", "View All Data", "Reset Data", "Retrain Model"])
+
+if admin_action == "View All Data":
+    st.markdown("#### 📋 All Prediction Records")
+    df = pd.read_csv(CSV_FILE)
+    st.dataframe(df)
+
+elif admin_action == "Reset Data":
+    os.remove(CSV_FILE)
+    st.success("🧹 All data reset! Start fresh!")
+
+elif admin_action == "Retrain Model":
+    model, feature_names = train_model()
+    if model:
+        st.success("🔄 Model retrained with current data.")
+    else:
+        st.warning("⚠️ Not enough data yet to retrain.")
