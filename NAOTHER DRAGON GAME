@@ -1,0 +1,324 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dragon Wave Battle</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+    canvas {
+      display: block;
+    }
+    #respawnBtn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: yellow;
+      color: black;
+      border: none;
+      padding: 20px 40px;
+      font-size: 24px;
+      font-weight: bold;
+      display: none;
+      cursor: pointer;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<button id="respawnBtn">RESPAWN</button>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+const respawnBtn = document.getElementById("respawnBtn");
+
+let keys = {};
+let fireballs = [];
+let explosions = [];
+let dragons = [];
+let player;
+let score = 0;
+let gameOver = false;
+let currentWave = 1;
+let shotsPerFire = 1;
+const MAX_HEALTH = 100;
+const DAMAGE = 10;
+
+const directions = {
+  up: { dx: 0, dy: -1 },
+  down: { dx: 0, dy: 1 },
+  left: { dx: -1, dy: 0 },
+  right: { dx: 1, dy: 0 }
+};
+
+let playerDirection = "right";
+
+function createPlayer() {
+  return {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    dx: 0,
+    dy: 0,
+    colorPhase: 0,
+    health: MAX_HEALTH,
+    speed: 2,
+    width: 12,
+    length: 140,
+    fireCooldown: 0,
+    isPlayer: true,
+    alive: true
+  };
+}
+
+class EnemyDragon {
+  constructor() {
+    this.x = Math.random() * canvas.width;
+    this.y = Math.random() * canvas.height;
+    this.dx = (Math.random() - 0.5) * 2;
+    this.dy = (Math.random() - 0.5) * 2;
+    this.health = 100;
+    this.color = `hsl(${Math.random() * 360}, 70%, 50%)`;
+    this.fireCooldown = 100 + Math.random() * 100;
+  }
+
+  update() {
+    this.x += this.dx;
+    this.y += this.dy;
+    if (this.x <= 0 || this.x >= canvas.width) this.dx *= -1;
+    if (this.y <= 0 || this.y >= canvas.height) this.dy *= -1;
+
+    this.fireCooldown--;
+    if (this.fireCooldown <= 0) {
+      const angle = Math.atan2(player.y - this.y, player.x - this.x);
+      fireballs.push({
+        x: this.x,
+        y: this.y,
+        dx: Math.cos(angle) * 3,
+        dy: Math.sin(angle) * 3,
+        fromPlayer: false,
+        bounces: 0,
+        maxBounces: 1,
+        color: this.color
+      });
+      this.fireCooldown = 100 + Math.random() * 100;
+    }
+  }
+
+  draw() {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 70, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(60, -5, 3, 0, Math.PI * 2);
+    ctx.fillStyle = "red";
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function shootPlayerFireball() {
+  if (player.fireCooldown > 0 || !player.alive) return;
+  const dir = directions[playerDirection];
+  for (let i = 0; i < shotsPerFire; i++) {
+    fireballs.push({
+      x: player.x,
+      y: player.y,
+      dx: dir.dx * 6,
+      dy: dir.dy * 6,
+      fromPlayer: true,
+      bounces: 0,
+      maxBounces: 2,
+      color: "white"
+    });
+  }
+  player.fireCooldown = 15;
+}
+
+function drawFireballs() {
+  fireballs.forEach((f, i) => {
+    f.x += f.dx;
+    f.y += f.dy;
+
+    if (f.x <= 0 || f.x >= canvas.width) {
+      f.dx *= -1;
+      f.bounces++;
+    }
+    if (f.y <= 0 || f.y >= canvas.height) {
+      f.dy *= -1;
+      f.bounces++;
+    }
+
+    if (f.bounces > f.maxBounces) {
+      fireballs.splice(i, 1);
+      return;
+    }
+
+    if (f.fromPlayer) {
+      dragons.forEach((d, j) => {
+        if (Math.hypot(f.x - d.x, f.y - d.y) < 30) {
+          d.health -= DAMAGE;
+          explosions.push({ x: f.x, y: f.y, r: 0 });
+          fireballs.splice(i, 1);
+          score += 0.5;
+          if (d.health <= 0) {
+            dragons.splice(j, 1);
+            score += 10;
+            player.health = Math.min(player.health + 20, MAX_HEALTH);
+            if (dragons.length === 0) {
+              currentWave++;
+              shotsPerFire++;
+              spawnEnemies(currentWave);
+            }
+          }
+        }
+      });
+    } else {
+      if (Math.hypot(f.x - player.x, f.y - player.y) < 30 && player.alive) {
+        player.health -= DAMAGE;
+        explosions.push({ x: f.x, y: f.y, r: 0 });
+        fireballs.splice(i, 1);
+        if (player.health <= 0) {
+          player.alive = false;
+          gameOver = true;
+          respawnBtn.style.display = "block";
+        }
+      }
+    }
+
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = f.color;
+    ctx.shadowColor = f.color;
+    ctx.shadowBlur = 10;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+}
+
+function drawExplosions() {
+  explosions.forEach((e, i) => {
+    e.r += 2;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 100, 0, ${1 - e.r / 30})`;
+    ctx.fill();
+    if (e.r > 30) explosions.splice(i, 1);
+  });
+}
+
+function drawPlayer() {
+  if (!player.alive) return;
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  ctx.fillStyle = "cyan";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, player.length / 2, player.width, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(60, -5, 3, 0, Math.PI * 2);
+  ctx.fillStyle = "red";
+  ctx.fill();
+  ctx.restore();
+}
+
+function updatePlayer() {
+  if (!player.alive) return;
+  player.dx = player.dy = 0;
+  if (keys["ArrowLeft"] || keys["a"]) {
+    player.dx = -player.speed;
+    playerDirection = "left";
+  }
+  if (keys["ArrowRight"] || keys["d"]) {
+    player.dx = player.speed;
+    playerDirection = "right";
+  }
+  if (keys["ArrowUp"] || keys["w"]) {
+    player.dy = -player.speed;
+    playerDirection = "up";
+  }
+  if (keys["ArrowDown"] || keys["s"]) {
+    player.dy = player.speed;
+    playerDirection = "down";
+  }
+  player.x += player.dx;
+  player.y += player.dy;
+  player.fireCooldown--;
+}
+
+function drawUI() {
+  ctx.fillStyle = "#fff";
+  ctx.font = "18px sans-serif";
+  ctx.fillText(`Score: ${score.toFixed(1)} | Wave: ${currentWave}`, 20, 30);
+  ctx.fillText(`Health: ${player.health}`, canvas.width - 160, 30);
+  ctx.strokeStyle = "#fff";
+  ctx.strokeRect(canvas.width - 180, 40, 120, 10);
+  ctx.fillStyle = "lime";
+  ctx.fillRect(canvas.width - 180, 40, (player.health / MAX_HEALTH) * 120, 10);
+  if (gameOver) {
+    ctx.fillStyle = "red";
+    ctx.font = "bold 60px sans-serif";
+    ctx.fillText("YOU ARE WEAK", canvas.width / 2 - 200, canvas.height / 2);
+  }
+}
+
+function spawnEnemies(count) {
+  for (let i = 0; i < count; i++) {
+    dragons.push(new EnemyDragon());
+  }
+}
+
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  updatePlayer();
+  drawPlayer();
+  dragons.forEach(d => { d.update(); d.draw(); });
+  drawFireballs();
+  drawExplosions();
+  drawUI();
+  requestAnimationFrame(animate);
+}
+
+function startGame() {
+  dragons = [];
+  fireballs = [];
+  explosions = [];
+  score = 0;
+  gameOver = false;
+  currentWave = 1;
+  shotsPerFire = 1;
+  player = createPlayer();
+  spawnEnemies(currentWave);
+  respawnBtn.style.display = "none";
+}
+
+document.addEventListener("keydown", e => {
+  keys[e.key] = true;
+  if (e.code === "Space") shootPlayerFireball();
+});
+
+document.addEventListener("keyup", e => keys[e.key] = false);
+respawnBtn.addEventListener("click", () => startGame());
+window.addEventListener("resize", () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+
+startGame();
+animate();
+</script>
+</body>
+</html>
